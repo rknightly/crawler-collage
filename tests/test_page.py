@@ -39,11 +39,22 @@ class TestCollectLinks(TestCase):
 
 class TestCollectImages(TestCase):
 
-    def test_page(self):
+    def test_single_img(self):
+        from crawler_collage import Page, ImageData
+
+        page = Page("http://rknightly.github.io/introHtml.html")
+        expected_result = ImageData(image_url="http://www.intro-webdesign.com"
+                                              "/images/newlogo.png",
+                                    alt_text="WD4E")
+        self.assertEqual(page.get_images().pop(), expected_result,
+                         "Single image collected incorrectly")
+
+    def test_multiple_imgs(self):
         from crawler_collage import Page
 
-        page = Page("https://en.wikipedia.org/wiki/Micrometre")
-        page.collect_images()
+        page = Page("http://rknightly.github.io/index.html")
+        self.assertEqual(len(page.get_images()), 13,
+                         "Multiple images collected incorrectly")
 
 
 class TestVerifyAbsUrl(TestCase):
@@ -71,4 +82,11 @@ class TestVerifyAbsUrl(TestCase):
             "Absolute url incorrectly calculated when given absolute url")
 
     def test_incomplete_abs_url(self):
-        pass
+        from crawler_collage import Page
+
+        page = Page("https://en.wikipedia.org/wiki/Micrometre")
+        self.assertEqual(page.verify_abs_url(
+            test_url="//wikimedia.org"),
+            "https://wikimedia.org",
+            "Absolute url incorrectly calculated when given incomplete"
+            " absolute url")
