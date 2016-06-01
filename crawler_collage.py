@@ -1,6 +1,7 @@
 import urllib.request
 import urllib.parse
-from urllib import request, parse
+from urllib import request
+from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 
 
@@ -52,7 +53,13 @@ class Page:
     """Store the information of a single page"""
     def __init__(self, url):
         self.url = url
-        self.links = []
+        self.url_base = self.get_url_base()
+        self.links = self.collect_links()
+
+    def get_url_base(self):
+        url_parts = urlparse(self.url)
+        main_website_url = url_parts.scheme + "://" + url_parts.netloc
+        return main_website_url
 
     def collect_links(self):
         """Collect all links from a page"""
@@ -62,16 +69,22 @@ class Page:
 
         # Grab all of the links with BeautifulSoup and only keep the ones with
         # "www." to ensure that self-referencing links are not collected
-        links = set([link['href'] for link in soup.findAll('a') if
-                     "www." in link['href']])
+        # links = {link['href'] for link in soup.findAll('a')}
 
-        self.links.extend(links)
+        links = set()
+        for link in soup.findAll('a'):
+            try:
+                links.add(link['href'])
+            except KeyError:
+                pass
 
-        return links
+        abs_links = {self.verify_abs_url(test_url=link) for link in links}
 
-    def collect_images(self, page_url):
+        return abs_links
+
+    def collect_images(self):
         """Collect all of the images on the page and save them to a folder"""
-        page_request = urllib.request.Request(page_url)
+        page_request = urllib.request.Request(self.url)
         response = urllib.request.urlopen(page_request)
         soup = BeautifulSoup(response, "lxml")  # Specify the parser to use
 
@@ -80,8 +93,7 @@ class Page:
         for img in soup.findAll('img'):
             temp = img.get('src')
 
-            image_url = self.verify_abs_url(page_url=page_url,
-                                            img_url=temp)
+            image_url = self.verify_abs_url(test_url=temp)
 
             name_temp = img.get("alt")
             # Deal with missing alt text
@@ -95,22 +107,17 @@ class Page:
             image_file.write(urllib.request.urlopen(image_url).read())
             image_file.close()
 
-    def verify_abs_url(self, img_url):
+    def verify_abs_url(self, test_url):
         """Take an image url and if it is not an absolute url, make it one and
         return it
         """
 
-        new_img_url = img_url
+        abs_img_url = urljoin(self.get_url_base(), test_url)
 
-        if img_url[:2] == "//":
-            print("It happened")
-            new_img_url = "http:" + img_url
-        elif img_url[:1] == "/":
-            new_img_url = self.url + img_url
-        else:
-            new_img_url = img_url
+        return abs_img_url
 
-        return new_img_url
+    def get_links(self):
+        return self.links
 
 
 class ImageData:
