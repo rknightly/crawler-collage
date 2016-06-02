@@ -4,6 +4,7 @@ from urllib import request
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import random
+import os
 
 
 class UserInput:
@@ -59,12 +60,14 @@ class Crawler:
 
         # Initialise the collection of links to visit with the initial link
         # given by the user.
-        self.links_to_visit = set(self.settings.get_user_url)
-        self.images = set()
+        self.links_to_visit = [self.settings.get_user_url()]
+        self.images = set()     # The order of the images is irrelevant
 
-    def visit_page(self, url):
-        """Run the processes necessary upon visitation of a single page"""
+    def visit_next_page(self):
+        """Visit the first link in the list of links to visit, remove it from
+        the list, and call the functions necessary upon visitation"""
 
+        url = self.links_to_visit.pop(0)
         page = Page(url)
         self.dump_data(page)
 
@@ -74,8 +77,8 @@ class Crawler:
         by the crawler
         """
 
-        self.links_to_visit.add(page.get_links())
-        self.images.add(page.get_images())
+        self.links_to_visit.extend(page.get_links())
+        self.images.update(page.get_images())
 
     def download_all_images(self):
         """Download all of the images on a page through the use of the image
@@ -92,7 +95,7 @@ class Crawler:
         pages_visited = 0
 
         while pages_visited < self.settings.get_user_page_lim:
-            self.visit_page(self.links_to_visit.pop())
+            self.visit_next_page()
             pages_visited += 1
 
 
@@ -127,14 +130,14 @@ class Page:
         # "www." to ensure that self-referencing links are not collected
         # links = {link['href'] for link in soup.findAll('a')}
 
-        links = set()
+        links = []
         for link in soup.findAll('a'):
             try:
-                links.add(link['href'])
+                links.append(link['href'])
             except KeyError:
                 pass
 
-        abs_links = {self.verify_abs_url(test_url=link) for link in links}
+        abs_links = [self.verify_abs_url(test_url=link) for link in links]
 
         return abs_links
 
@@ -186,7 +189,6 @@ class ImageData:
         self.image_url = image_url
         self.alt_text = alt_text
         self.file_name = self.make_name()
-        print(self.__dict__)
 
     def make_name(self):
         """Create the name of the file based off of the alt text, or from a
@@ -225,13 +227,24 @@ class ImageDownloader:
 
     def clear_folder(self):
         """Empty the image folder of images from a previous run"""
-        pass
+
+        image_dir = '../images'
+        file_names = [name for name in os.listdir(image_dir) if
+                      os.path.isfile(os.path.join(image_dir, name))]
+
+        file_paths = [os.path.join(image_dir, file_name) for file_name in
+                      file_names]
+
+        for file_path in file_paths:
+            print(file_path)
+            if os.path.isfile(file_path):
+                os.remove(path=file_path)
 
     def download_images(self):
         """Download all of the images in the list of image objects"""
 
         for img in self.imgs:
-            image_file = open("../images/" + img.get_file_name + ".jpeg", "wb")
+            image_file = open("../images/" + img.get_file_name(), "wb")
             image_file.write(urllib.request.urlopen(img.get_image_url())
                              .read())
             image_file.close()

@@ -26,13 +26,12 @@ class TestCollectLinks(TestCase):
         from crawler_collage import Page
 
         page = Page("http://rknightly.github.io/introHtml.html")
-        print(page.get_links())
         self.assertEqual(page.get_links(),
-                         {"https://www.youtube.com/watch?v=WSeNSzJ2-Jw",
-                          "http://www.intro-webdesign.com/",
-                          "http://rknightly.github.io/one.html",
+                         ["http://rknightly.github.io/one.html",
                           "http://rknightly.github.io/two.two.html",
-                          "http://rknightly.github.io/three.html"},
+                          "http://rknightly.github.io/three.html",
+                          "https://www.youtube.com/watch?v=WSeNSzJ2-Jw",
+                          "http://www.intro-webdesign.com/"],
                          "Links were not correctly collected from example"
                          " page")
 
