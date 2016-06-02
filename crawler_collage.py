@@ -11,12 +11,11 @@ class UserInput:
 
     def __init__(self):
         self.user_url = ""
-        self.user_page_num = 0
-
-        self.find_user_url()
-        self.find_user_page_num()
+        self.user_page_lim = 0
 
     def find_user_url(self):
+        """Get the url to start on from the user"""
+
         user_url = input("Start page -> ")
         if user_url == "":
             user_url = "https://cnn.com"
@@ -24,18 +23,30 @@ class UserInput:
         self.user_url = user_url
 
     def find_user_page_num(self):
+        """Get the max number of pages that will be visited"""
+
         user_page_num = input("Pages to crawl -> ")
         if user_page_num.isdigit():
             user_page_num = int(user_page_num)
         else:
             user_page_num = 5
-        self.user_page_num = user_page_num
+        self.user_page_lim = user_page_num
+
+    def request_user_settings(self):
+        """Get both the starting url and max number of pages from the user"""
+
+        self.find_user_url()
+        self.find_user_page_num()
 
     def get_user_url(self):
+        """Return the initial url"""
+
         return self.user_url
 
-    def get_user_page_num(self):
-        return self.user_page_num
+    def get_user_page_lim(self):
+        """Return the max number of pages to be crawled"""
+
+        return self.user_page_lim
 
 
 class Crawler:
@@ -44,10 +55,45 @@ class Crawler:
     def __init__(self, user_settings):
         self.settings = user_settings
         self.initial_page = self.settings.get_user_url()
-        self.pages_to_visit = self.settings.get_user_page_num()
+        self.pages_to_visit = self.settings.get_user_page_lim()
 
-    def visit_page(self):
-        pass
+        # Initialise the collection of links to visit with the initial link
+        # given by the user.
+        self.links_to_visit = set(self.settings.get_user_url)
+        self.images = set()
+
+    def visit_page(self, url):
+        """Run the processes necessary upon visitation of a single page"""
+
+        page = Page(url)
+        self.dump_data(page)
+
+    def dump_data(self, page):
+        """
+        Take the data from a page and update the overall information held
+        by the crawler
+        """
+
+        self.links_to_visit.add(page.get_links())
+        self.images.add(page.get_images())
+
+    def download_all_images(self):
+        """Download all of the images on a page through the use of the image
+        downloader
+        """
+
+        downloader = ImageDownloader(self.images)
+        downloader.run()
+
+    def visit_multiple_pages(self):
+        """Visit multiple pages and collect the information from each of them
+        """
+
+        pages_visited = 0
+
+        while pages_visited < self.settings.get_user_page_lim:
+            self.visit_page(self.links_to_visit.pop())
+            pages_visited += 1
 
 
 class Page:
@@ -60,12 +106,19 @@ class Page:
         self.images = self.collect_images()
 
     def get_url_base(self):
+        """Return the base of the page's url."""
+
+        # For example, in https://en.wikipedia.org/wiki/Computer_science
+        # the base url is https: // en.wikipedia.org
+
         url_parts = urlparse(self.url)
         main_website_url = url_parts.scheme + "://" + url_parts.netloc
+
         return main_website_url
 
     def collect_links(self):
         """Collect all links from a page"""
+
         page_request = request.Request(self.url)
         response = request.urlopen(page_request)
         soup = BeautifulSoup(response, "lxml")  # Specify the parser to use
@@ -86,12 +139,14 @@ class Page:
         return abs_links
 
     def collect_images(self):
-        """Collect all of the images on the page and save them to a folder"""
+        """Collect all of the images on the page and add them to a set as an
+        ImageData object
+        """
+
         page_request = urllib.request.Request(self.url)
         response = urllib.request.urlopen(page_request)
         soup = BeautifulSoup(response, "lxml")  # Specify the parser to use
 
-        unnamed_images = 0
         images = set()
 
         for img in soup.findAll('img'):
@@ -114,40 +169,51 @@ class Page:
         return abs_img_url
 
     def get_links(self):
+        """Return the set of all links on the page"""
+
         return self.links
 
     def get_images(self):
+        """Return the set of all images on the page"""
+
         return self.images
 
 
 class ImageData:
+    """Contain the information related to a single image"""
+
     def __init__(self, image_url, alt_text):
         self.image_url = image_url
         self.alt_text = alt_text
         self.file_name = self.make_name()
         print(self.__dict__)
 
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-    def __hash__(self):
-        return id(self)
-
     def make_name(self):
-        file_name = self.alt_text
-        # Deal with missing alt text
-        if len(file_name) == 0:
-            file_name = "unnamed_img_" + str(random.randrange(10000))
+        """Create the name of the file based off of the alt text, or from a
+        random number if none is provided"""
 
+        photo_name = self.alt_text
+        # Deal with missing alt text
+        if len(photo_name) == 0:
+            photo_name = "unnamed_img_" + str(random.randrange(10000))
+        file_name = photo_name + ".jpeg"
         return file_name
 
     def get_image_url(self):
+        """Return the absolute url that the image can be found at"""
+
         return self.image_url
 
     def get_alt_text(self):
+        """Return the alt text of an image. Lack of an alt text returns a blank
+        string
+        """
+
         return self.alt_text
 
     def get_file_name(self):
+        """Return the complete name for the image file"""
+
         return self.file_name
 
 
@@ -158,47 +224,37 @@ class ImageDownloader:
         self.imgs = img_objects
 
     def clear_folder(self):
+        """Empty the image folder of images from a previous run"""
         pass
 
     def download_images(self):
+        """Download all of the images in the list of image objects"""
+
         for img in self.imgs:
             image_file = open("../images/" + img.get_file_name + ".jpeg", "wb")
             image_file.write(urllib.request.urlopen(img.get_image_url())
                              .read())
             image_file.close()
 
+    def run(self):
+        """Clear the folder out and download all of the images"""
+
+        self.clear_folder()
+        self.download_images()
+
 
 class Program:
-    """Run the main program"""
+    """Hold the main program"""
 
     def __init__(self):
         self.user_input = UserInput()
+        self.user_input.request_user_settings()
+
         self.crawler = Crawler(self.user_input)
 
+    def run(self):
+        pass
+
 if __name__ == "__main__":
-    program = Program()
-
-
-# Visit page
-
-        # Store in folder
-
-    # Collect links
-
-        # Store in list
-
-# Visit the stored links until level num reached. Or
-
-    # page num reached, or level num reached
-
-# Create new image with collected images
-
-    # Make the background with the first image
-
-    # Place other photos
-
-        # Add at random angle and size
-
-        # Save result
-
-# Display saved result
+    crawler_collage = Program()
+    crawler_collage.run()

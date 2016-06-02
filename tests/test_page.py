@@ -46,7 +46,8 @@ class TestCollectImages(TestCase):
         expected_result = ImageData(image_url="http://www.intro-webdesign.com"
                                               "/images/newlogo.png",
                                     alt_text="WD4E")
-        self.assertEqual(page.get_images().pop(), expected_result,
+        page_img = page.get_images().pop()
+        self.assertTrue(page_img.__dict__ == expected_result.__dict__,
                          "Single image collected incorrectly")
 
     def test_multiple_imgs(self):
