@@ -37,7 +37,8 @@ class TestVisitPage(TestCase, BasicSettings):
                          " a single page")
         expected_image = ImageData(image_url="http://www.intro-webdesign.com/"
                                              "images/newlogo.png",
-                                   alt_text="WD4E")
+                                   alt_text="WD4E",
+                                   unnamed_image_count=0)
 
         # Ensure that the attributes of the expected image are equal to the
         # attributes of the image popped from the set of images
@@ -57,6 +58,7 @@ class TestDumpData(TestCase, BasicSettings):
         BasicSettings.__init__(self)
         crawler = Crawler(user_settings=self.settings)
         test_page = Page("http://rknightly.github.io/introHtml.html")
+        test_page.collect_images(total_unnamed_image_count=5)
         crawler.dump_data(test_page)
 
         self.assertEqual(crawler.links_to_visit,
@@ -73,7 +75,8 @@ class TestDumpData(TestCase, BasicSettings):
 
         expected_image = ImageData(image_url="http://www.intro-webdesign.com/"
                                              "images/newlogo.png",
-                                   alt_text="WD4E")
+                                   alt_text="WD4E",
+                                   unnamed_image_count=5)
 
         # Ensure that the attributes of the expected image are equal to the
         # attributes of the image popped from the set of images

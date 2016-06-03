@@ -42,9 +42,11 @@ class TestCollectImages(TestCase):
         from crawler_collage import Page, ImageData
 
         page = Page("http://rknightly.github.io/introHtml.html")
+        page.collect_images(total_unnamed_image_count=5)
         expected_result = ImageData(image_url="http://www.intro-webdesign.com"
                                               "/images/newlogo.png",
-                                    alt_text="WD4E")
+                                    alt_text="WD4E",
+                                    unnamed_image_count=5)
         page_img = page.get_images().pop()
         self.assertTrue(page_img.__dict__ == expected_result.__dict__,
                          "Single image collected incorrectly")
@@ -53,6 +55,7 @@ class TestCollectImages(TestCase):
         from crawler_collage import Page
 
         page = Page("http://rknightly.github.io/index.html")
+        page.collect_images(total_unnamed_image_count=5)
         self.assertEqual(len(page.get_images()), 13,
                          "Multiple images collected incorrectly")
 

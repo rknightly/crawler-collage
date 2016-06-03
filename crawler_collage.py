@@ -6,7 +6,7 @@ from urllib import request
 from urllib.parse import urlparse, urljoin
 from urllib import error
 from bs4 import BeautifulSoup
-import random
+import re
 import os
 
 
@@ -64,7 +64,8 @@ class Crawler:
         # Initialise the collection of links to visit with the initial link
         # given by the user.
         self.links_to_visit = [self.settings.get_user_url()]
-        self.images = set()     # The order of the images is irrelevant
+        self.images = []     # The order of the images is irrelevant
+        self.total_unnamed_images = 0
 
     def visit_next_page(self):
         """Visit the first link in the list of links to visit, remove it from
@@ -77,6 +78,9 @@ class Crawler:
             url = self.links_to_visit.pop(0)
             print(url)
             page = Page(url)
+            page.collect_images(
+                total_unnamed_image_count=self.total_unnamed_images)
+            self.total_unnamed_images += page.get_unnamed_images_on_page()
             self.dump_data(page)
         else:
             can_visit = False
@@ -90,7 +94,16 @@ class Crawler:
         """
 
         self.links_to_visit.extend(page.get_links())
-        self.images.update(page.get_images())
+        # Only add the image to the list if none of the others have the same
+        # name
+        for image in page.get_images():
+            already_added = False
+            for image_already_added in self.images:
+                if image_already_added.get_file_name() == image.get_file_name():
+                    already_added = True
+            if not already_added:
+                self.images.append(image)
+        #self.images.extend(page.get_images())
 
     def download_all_images(self):
         """Download all of the images on a page through the use of the image
@@ -124,9 +137,13 @@ class Page:
 
     def __init__(self, url):
         self.url = url
+        self.unnamed_images_on_page = 0
         self.url_base = self.get_url_base()
         self.links = self.collect_links()
-        self.images = self.collect_images()
+
+        # Hold images as blank list until the method is called so that the
+        # number of unnamed images can be passed in
+        self.images = []
 
     def get_url_base(self):
         """Return the base of the page's url."""
@@ -163,33 +180,34 @@ class Page:
 
         return abs_links
 
-    def collect_images(self):
-        """Collect all of the images on the page and add them to a set as an
+    def collect_images(self, total_unnamed_image_count):
+        """Collect all of the images on the page and add them to a list as an
         ImageData object
         """
-
+        current_unnamed_image_count = total_unnamed_image_count
         page_request = urllib.request.Request(self.url)
         response = urllib.request.urlopen(page_request)
 
         # Specify the parser to use
         soup = BeautifulSoup(response, "html.parser")
 
-        images = set()
+        images = []
 
         # Keep a count of the images with no designated file name
-        # unnamed_image_count = 0
 
         for img in soup.findAll('img'):
             temp = img.get('src')
 
             image_url = self.verify_abs_url(test_url=temp)
             image_alt_text = str(img.get("alt"))
-            image = ImageData(image_url=image_url, alt_text=image_alt_text)
-            # if image.is_unnamed():
-            #     unnamed_image_count += 1
-            images.add(image)
+            image = ImageData(image_url=image_url, alt_text=image_alt_text,
+                              unnamed_image_count=current_unnamed_image_count)
+            if image.is_unnamed():
+                current_unnamed_image_count += 1
+                self.unnamed_images_on_page += 1
+            images.append(image)
 
-        return images
+        self.images = images
 
     def verify_abs_url(self, test_url):
         """Take an image url and if it is not an absolute url, make it one and
@@ -210,29 +228,32 @@ class Page:
 
         return self.images
 
+    def get_unnamed_images_on_page(self):
+        """Return the number of unnamed images on the page"""
+
+        return self.unnamed_images_on_page
+
 
 class ImageData:
     """Contain the information related to a single image"""
 
-    def __init__(self, image_url, alt_text):
+    def __init__(self, image_url, alt_text, unnamed_image_count):
         self.image_url = image_url
         self.alt_text = alt_text
+        self.unnamed_image_count = unnamed_image_count
         self.file_name = self.make_name()
 
     def make_name(self):
         """Create the name of the file based off of the alt text, or from a
         random number if none is provided"""
 
-        photo_name = self.alt_text
+        photo_name = self.get_alt_text()
         # Deal with missing alt text
         if self.is_unnamed():
-            photo_name = "unnamed_temp"
+            photo_name = "unnamed_img_" + str(self.unnamed_image_count)
         file_name = photo_name + ".jpeg"
 
         return file_name
-
-    def make_unnamed_title(self, unnamed_image_count):
-        self.file_name = "unnamed_img_" + str(unnamed_image_count)
 
     def get_image_url(self):
         """Return the absolute url that the image can be found at"""
@@ -240,11 +261,15 @@ class ImageData:
         return self.image_url
 
     def get_alt_text(self):
-        """Return the alt text of an image. Lack of an alt text returns a blank
-        string
+        """Return the alt text of an image with spaces replaced with
+        underscores. Lack of an alt text returns a blank string
         """
 
-        return self.alt_text
+        # Remove commas and periods
+        alt_text = re.sub(r',|\.|/', '', self.alt_text)
+        # Replaces spaces with underscores
+        alt_text = re.sub(r'\s', '_', alt_text)
+        return alt_text
 
     def get_file_name(self):
         """Return the complete name for the image file"""
@@ -297,33 +322,33 @@ class ImageDownloader:
 
     def download_images(self):
         """Download all of the images in the list of image objects"""
-        print("images:", [img.get_file_name() for img in self.imgs])
         print("Pictures to download:", len([img.get_file_name() for img
                                             in self.imgs]))
-        unnamed_image_count = 0
         for img in self.imgs:
-            if img.is_unnamed():
-                img.make_unnamed_title(unnamed_image_count=
-                                       unnamed_image_count)
-                unnamed_image_count += 1
-            print("Writing file")
-            prior_amount = len(os.listdir("./images"))  # Test code -----------
+            # if img.is_unnamed():
+                # img.make_unnamed_title(unnamed_image_count=
+                #                        unnamed_image_count)
+                # unnamed_image_count += 1
+            prior_amount = len(os.listdir("./images"))
             if os.path.exists(os.path.join("./images", img.get_file_name())):
-                print("[WARNING] Image will be overwritten-------------------")
+                print("[WARNING] Image would be overwritten------------------")
                 print("Image name:", img.get_file_name())
+                print("^ Link:", img.get_image_url())
+
+                continue
             image_file = open(os.path.join(self.image_folder.get_path(),
                                            img.get_file_name()),
                               "wb")
             try:
                 image_file.write(urllib.request.urlopen(img.get_image_url())
-                             .read())
+                                 .read())
                 image_file.close()
 
             except urllib.error.HTTPError:
                 print("Image unable to write.")
                 print("Url:", img.get_image_url())
 
-            later_amount = len(os.listdir("./images"))  # Test code -----------
+            later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
                 print("[WARNING] Image not downloaded------------------------")
 
