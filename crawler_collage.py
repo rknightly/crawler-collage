@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import urllib.request
 import urllib.parse
 from urllib import request
@@ -124,7 +126,9 @@ class Page:
 
         page_request = request.Request(self.url)
         response = request.urlopen(page_request)
-        soup = BeautifulSoup(response, "lxml")  # Specify the parser to use
+
+        # Specify the parser to use
+        soup = BeautifulSoup(response, "html.parser")
 
         # Grab all of the links with BeautifulSoup and only keep the ones with
         # "www." to ensure that self-referencing links are not collected
@@ -148,7 +152,9 @@ class Page:
 
         page_request = urllib.request.Request(self.url)
         response = urllib.request.urlopen(page_request)
-        soup = BeautifulSoup(response, "lxml")  # Specify the parser to use
+
+        # Specify the parser to use
+        soup = BeautifulSoup(response, "html.parser")
 
         images = set()
 
@@ -219,20 +225,23 @@ class ImageData:
         return self.file_name
 
 
-class ImageDownloader:
-    """Download the images at the given url"""
+class Directory:
+    """Contain the information and methods related to a folder"""
 
-    def __init__(self, img_objects):
-        self.imgs = img_objects
+    def __init__(self, path):
+        self.path = path    # Path should be given as a string
+        self.ensure_dir_exists()
 
-    def clear_folder(self):
-        """Empty the image folder of images from a previous run"""
+    def ensure_dir_exists(self):
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
 
-        image_dir = '../images'
-        file_names = [name for name in os.listdir(image_dir) if
-                      os.path.isfile(os.path.join(image_dir, name))]
+    def clear_dir(self):
+        """Empty the directory"""
+        file_names = [name for name in os.listdir(self.path) if
+                      os.path.isfile(os.path.join(self.path, name))]
 
-        file_paths = [os.path.join(image_dir, file_name) for file_name in
+        file_paths = [os.path.join(self.path, file_name) for file_name in
                       file_names]
 
         for file_path in file_paths:
@@ -240,11 +249,25 @@ class ImageDownloader:
             if os.path.isfile(file_path):
                 os.remove(path=file_path)
 
+    def get_path(self):
+        return self.path
+
+
+class ImageDownloader:
+    """Download the images at the given url"""
+
+    def __init__(self, img_objects):
+        self.imgs = img_objects
+        self.image_folder = Directory('../images')
+        self.image_folder.clear_dir()
+
     def download_images(self):
         """Download all of the images in the list of image objects"""
 
         for img in self.imgs:
-            image_file = open("../images/" + img.get_file_name(), "wb")
+            image_file = open(os.path.join(self.image_folder.get_path(),
+                                           img.get_file_name()),
+                              "wb")
             image_file.write(urllib.request.urlopen(img.get_image_url())
                              .read())
             image_file.close()
@@ -252,7 +275,6 @@ class ImageDownloader:
     def run(self):
         """Clear the folder out and download all of the images"""
 
-        self.clear_folder()
         self.download_images()
 
 

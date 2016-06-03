@@ -11,9 +11,9 @@ class BasicSettings:
         self.settings.user_url = "http://rknightly.github.io/introHtml.html"
         self.settings.user_page_lim = 2
 
-    def change_to_school_homepage_url(self):
-        self.settings.user_url = "http://rknightly.github.io/schoolHomepage" \
-                                 ".html"
+    def change_to_small_wiki(self):
+        self.settings.user_url = "https://en.wikipedia.org/wiki/" \
+                                 "Lumbar"
 
 
 class TestVisitPage(TestCase, BasicSettings):
@@ -100,7 +100,6 @@ class TestDownloadAllImages(TestCase, BasicSettings):
         from crawler_collage import Crawler
 
         BasicSettings.__init__(self)
-        self.check_how_many_pics()
 
         crawler = Crawler(self.settings)
         crawler.download_all_images()
@@ -114,12 +113,12 @@ class TestDownloadAllImages(TestCase, BasicSettings):
 
         BasicSettings.__init__(self)
 
-        self.change_to_school_homepage_url()
+        self.change_to_small_wiki()
 
         crawler = Crawler(self.settings)
         crawler.visit_next_page()
         crawler.download_all_images()
-        self.assertEqual(self.check_how_many_pics(), 7,
+        self.assertEqual(self.check_how_many_pics(), 5,
                          "Images incorrectly downloaded when several images "
                          "were collected")
 
