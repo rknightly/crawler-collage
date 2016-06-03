@@ -96,9 +96,15 @@ class Crawler:
 
         pages_visited = 0
 
-        while pages_visited < self.settings.get_user_page_lim:
+        while pages_visited < self.settings.get_user_page_lim():
             self.visit_next_page()
             pages_visited += 1
+
+    def run(self):
+        """Run the necessary functions for the crawler to finish its job"""
+
+        self.visit_multiple_pages()
+        self.download_all_images()
 
 
 class Page:
@@ -263,8 +269,9 @@ class ImageDownloader:
 
     def download_images(self):
         """Download all of the images in the list of image objects"""
-
+        print("images:", self.imgs)
         for img in self.imgs:
+            print("Writing file")
             image_file = open(os.path.join(self.image_folder.get_path(),
                                            img.get_file_name()),
                               "wb")
@@ -288,7 +295,7 @@ class Program:
         self.crawler = Crawler(self.user_input)
 
     def run(self):
-        pass
+        self.crawler.run()
 
 if __name__ == "__main__":
     crawler_collage = Program()
