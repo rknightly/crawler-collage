@@ -4,6 +4,7 @@ import urllib.request
 import urllib.parse
 from urllib import request
 from urllib.parse import urlparse, urljoin
+from urllib import error
 from bs4 import BeautifulSoup
 import random
 import os
@@ -69,9 +70,18 @@ class Crawler:
         """Visit the first link in the list of links to visit, remove it from
         the list, and call the functions necessary upon visitation"""
 
-        url = self.links_to_visit.pop(0)
-        page = Page(url)
-        self.dump_data(page)
+        print("Visiting new page")
+        can_visit = True
+        # Return False if no more links can be visited, true if they can
+        if len(self.links_to_visit) > 0:
+            url = self.links_to_visit.pop(0)
+            print(url)
+            page = Page(url)
+            self.dump_data(page)
+        else:
+            can_visit = False
+
+        return can_visit
 
     def dump_data(self, page):
         """
@@ -97,8 +107,10 @@ class Crawler:
         pages_visited = 0
 
         while pages_visited < self.settings.get_user_page_lim():
-            self.visit_next_page()
-            pages_visited += 1
+            if self.visit_next_page():
+                pages_visited += 1
+            else:
+                break
 
     def run(self):
         """Run the necessary functions for the crawler to finish its job"""
@@ -164,12 +176,17 @@ class Page:
 
         images = set()
 
+        # Keep a count of the images with no designated file name
+        # unnamed_image_count = 0
+
         for img in soup.findAll('img'):
             temp = img.get('src')
 
             image_url = self.verify_abs_url(test_url=temp)
-            image_alt_text = img.get("alt")
+            image_alt_text = str(img.get("alt"))
             image = ImageData(image_url=image_url, alt_text=image_alt_text)
+            # if image.is_unnamed():
+            #     unnamed_image_count += 1
             images.add(image)
 
         return images
@@ -208,10 +225,14 @@ class ImageData:
 
         photo_name = self.alt_text
         # Deal with missing alt text
-        if len(photo_name) == 0:
-            photo_name = "unnamed_img_" + str(random.randrange(10000))
+        if self.is_unnamed():
+            photo_name = "unnamed_temp"
         file_name = photo_name + ".jpeg"
+
         return file_name
+
+    def make_unnamed_title(self, unnamed_image_count):
+        self.file_name = "unnamed_img_" + str(unnamed_image_count)
 
     def get_image_url(self):
         """Return the absolute url that the image can be found at"""
@@ -230,6 +251,12 @@ class ImageData:
 
         return self.file_name
 
+    def is_unnamed(self):
+        unnamed = False
+        if len(self.alt_text) <= 1:
+            unnamed = True
+        return unnamed
+
 
 class Directory:
     """Contain the information and methods related to a folder"""
@@ -244,6 +271,8 @@ class Directory:
 
     def clear_dir(self):
         """Empty the directory"""
+
+        print("Clearing directory")
         file_names = [name for name in os.listdir(self.path) if
                       os.path.isfile(os.path.join(self.path, name))]
 
@@ -251,7 +280,6 @@ class Directory:
                       file_names]
 
         for file_path in file_paths:
-            print(file_path)
             if os.path.isfile(file_path):
                 os.remove(path=file_path)
 
@@ -264,20 +292,40 @@ class ImageDownloader:
 
     def __init__(self, img_objects):
         self.imgs = img_objects
-        self.image_folder = Directory('../images')
+        self.image_folder = Directory('./images')
         self.image_folder.clear_dir()
 
     def download_images(self):
         """Download all of the images in the list of image objects"""
-        print("images:", self.imgs)
+        print("images:", [img.get_file_name() for img in self.imgs])
+        print("Pictures to download:", len([img.get_file_name() for img
+                                            in self.imgs]))
+        unnamed_image_count = 0
         for img in self.imgs:
+            if img.is_unnamed():
+                img.make_unnamed_title(unnamed_image_count=
+                                       unnamed_image_count)
+                unnamed_image_count += 1
             print("Writing file")
+            prior_amount = len(os.listdir("./images"))  # Test code -----------
+            if os.path.exists(os.path.join("./images", img.get_file_name())):
+                print("[WARNING] Image will be overwritten-------------------")
+                print("Image name:", img.get_file_name())
             image_file = open(os.path.join(self.image_folder.get_path(),
                                            img.get_file_name()),
                               "wb")
-            image_file.write(urllib.request.urlopen(img.get_image_url())
+            try:
+                image_file.write(urllib.request.urlopen(img.get_image_url())
                              .read())
-            image_file.close()
+                image_file.close()
+
+            except urllib.error.HTTPError:
+                print("Image unable to write.")
+                print("Url:", img.get_image_url())
+
+            later_amount = len(os.listdir("./images"))  # Test code -----------
+            if not later_amount > prior_amount:
+                print("[WARNING] Image not downloaded------------------------")
 
     def run(self):
         """Clear the folder out and download all of the images"""

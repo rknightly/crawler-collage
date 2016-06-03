@@ -91,8 +91,8 @@ class TestDownloadAllImages(TestCase, BasicSettings):
         import os.path
 
         # Check how many files are in images folder
-        num_of_files = (len([name for name in os.listdir('../images') if
-                        os.path.isfile(os.path.join('../images', name))]))
+        num_of_files = (len([name for name in os.listdir('./images') if
+                        os.path.isfile(os.path.join('./images', name))]))
 
         return num_of_files
 
