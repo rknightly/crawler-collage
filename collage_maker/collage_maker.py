@@ -33,7 +33,12 @@ def make_collage(images, filename, width, init_height):
         while images_list:
             # get first image and resize to `init_height`
             img_path = images_list.pop(0)
-            img = Image.open(img_path)
+            try:
+                img = Image.open(img_path)
+            except OSError:
+                print("An image could not be used")
+                continue
+
             img.thumbnail((width, init_height))
             # when `x` will go beyond the `width`, start the next line
             if x > width:
@@ -109,7 +114,7 @@ class Settings:
     """Hold the settings passed in by the user"""
 
     def __init__(self, folder='./images', output='collage.png', width=1000,
-                 initial_height=50, shuffle=False):
+                 initial_height=25, shuffle=False):
         self.folder = folder
         self.output = output
         self.width = width

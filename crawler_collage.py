@@ -2,7 +2,7 @@
 
 import urllib.request
 import urllib.parse
-from urllib import request
+from urllib import request, error
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import re
@@ -161,7 +161,12 @@ class Page:
         """Collect all links from a page"""
 
         page_request = request.Request(self.url)
-        response = request.urlopen(page_request)
+        try:
+            response = request.urlopen(page_request)
+
+        except urllib.error.HTTPError:
+            print("A page was unreachable")
+            response = ""
 
         # Specify the parser to use
         soup = BeautifulSoup(response, "html.parser")
@@ -187,7 +192,11 @@ class Page:
         """
         current_unnamed_image_count = total_unnamed_image_count
         page_request = urllib.request.Request(self.url)
-        response = urllib.request.urlopen(page_request)
+        try:
+            response = urllib.request.urlopen(page_request)
+        except urllib.error.HTTPError:
+            print("Some images were unreachable")
+            response = ""
 
         # Specify the parser to use
         soup = BeautifulSoup(response, "html.parser")
@@ -252,7 +261,7 @@ class ImageData:
         # Deal with missing alt text
         if self.is_unnamed():
             photo_name = "unnamed_img_" + str(self.unnamed_image_count)
-        file_name = photo_name + ".jpeg"
+        file_name = photo_name + ".jpg"
 
         return file_name
 
@@ -352,6 +361,7 @@ class ImageDownloader:
             later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
                 print("[WARNING] Image not downloaded------------------------")
+        print("Images downloaded")
 
     def run(self):
         """Clear the folder out and download all of the images"""
