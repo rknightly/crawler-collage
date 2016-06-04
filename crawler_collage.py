@@ -4,10 +4,10 @@ import urllib.request
 import urllib.parse
 from urllib import request
 from urllib.parse import urlparse, urljoin
-from urllib import error
 from bs4 import BeautifulSoup
 import re
 import os
+from collage_maker import collage_maker
 
 
 class UserInput:
@@ -35,6 +35,7 @@ class UserInput:
         else:
             user_page_num = 5
         self.user_page_lim = user_page_num
+
 
     def request_user_settings(self):
         """Get both the starting url and max number of pages from the user"""
@@ -358,6 +359,15 @@ class ImageDownloader:
         self.download_images()
 
 
+class CollageMaker:
+    def __init__(self, settings):
+        self.settings = collage_maker.Settings()
+
+    def run(self):
+        collage_maker.run(self.settings)
+
+
+
 class Program:
     """Hold the main program"""
 
@@ -366,9 +376,11 @@ class Program:
         self.user_input.request_user_settings()
 
         self.crawler = Crawler(self.user_input)
+        self.collage_maker = CollageMaker(self.user_input)
 
     def run(self):
         self.crawler.run()
+        self.collage_maker.run()
 
 if __name__ == "__main__":
     crawler_collage = Program()

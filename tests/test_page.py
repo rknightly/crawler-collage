@@ -49,7 +49,7 @@ class TestCollectImages(TestCase):
                                     unnamed_image_count=5)
         page_img = page.get_images().pop()
         self.assertTrue(page_img.__dict__ == expected_result.__dict__,
-                         "Single image collected incorrectly")
+                        "Single image collected incorrectly")
 
     def test_multiple_imgs(self):
         from crawler_collage import Page
