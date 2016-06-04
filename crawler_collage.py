@@ -67,6 +67,7 @@ class Crawler:
         self.links_to_visit = [self.settings.get_user_url()]
         self.images = []     # The order of the images is irrelevant
         self.total_unnamed_images = 0
+        self.pages_visited = 0
 
     def visit_next_page(self):
         """Visit the first link in the list of links to visit, remove it from
@@ -83,6 +84,8 @@ class Crawler:
                 total_unnamed_image_count=self.total_unnamed_images)
             self.total_unnamed_images += page.get_unnamed_images_on_page()
             self.dump_data(page)
+            if page.could_visit():
+                self.pages_visited += 1
         else:
             can_visit = False
 
@@ -118,12 +121,9 @@ class Crawler:
         """Visit multiple pages and collect the information from each of them
         """
 
-        pages_visited = 0
-
-        while pages_visited < self.settings.get_user_page_lim():
-            if self.visit_next_page():
-                pages_visited += 1
-            else:
+        while self.pages_visited < self.settings.get_user_page_lim():
+            # Stop visiting pages if links to visit runs out
+            if not self.visit_next_page():
                 break
 
     def run(self):
@@ -141,6 +141,7 @@ class Page:
         self.unnamed_images_on_page = 0
         self.url_base = self.get_url_base()
         self.links = self.collect_links()
+        self.could_visit = True
 
         # Hold images as blank list until the method is called so that the
         # number of unnamed images can be passed in
@@ -166,6 +167,7 @@ class Page:
 
         except urllib.error.HTTPError:
             print("A page was unreachable")
+            self.could_visit = False
             response = ""
 
         # Specify the parser to use
@@ -195,6 +197,7 @@ class Page:
         try:
             response = urllib.request.urlopen(page_request)
         except urllib.error.HTTPError:
+            self.could_visit = False
             print("Some images were unreachable")
             response = ""
 
@@ -243,6 +246,10 @@ class Page:
 
         return self.unnamed_images_on_page
 
+    def get_could_visit(self):
+        """Return whether or not the page was able to be visited"""
+
+        return self.could_visit
 
 class ImageData:
     """Contain the information related to a single image"""
@@ -261,7 +268,7 @@ class ImageData:
         # Deal with missing alt text
         if self.is_unnamed():
             photo_name = "unnamed_img_" + str(self.unnamed_image_count)
-        file_name = photo_name + ".jpg"
+        file_name = photo_name + ".png"
 
         return file_name
 
@@ -279,6 +286,9 @@ class ImageData:
         alt_text = re.sub(r',|\.|/', '', self.alt_text)
         # Replaces spaces with underscores
         alt_text = re.sub(r'\s', '_', alt_text)
+        # Ensure that the file name is not too long
+        if len(alt_text) >= 30:
+            alt_text = alt_text[:30]
         return alt_text
 
     def get_file_name(self):
