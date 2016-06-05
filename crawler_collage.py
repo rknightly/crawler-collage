@@ -10,6 +10,13 @@ import os
 from collage_maker import collage_maker
 
 
+def verify_real_url(url):
+    """Return True if a url is legitimate or false if it is not"""
+
+    # Quick test to see if it starts with http
+    return True if url[:4] == "http" else False
+
+
 class UserInput:
     """Get the page to crawl from the user"""
 
@@ -19,10 +26,10 @@ class UserInput:
 
     def find_user_url(self):
         """Get the url to start on from the user"""
-
         user_url = input("Start page -> ")
-        if user_url == "":
-            user_url = "https://cnn.com"
+        while not verify_real_url(user_url):
+            print("[Error] Invalid url given")
+            user_url = input("Start page -> ")
 
         self.user_url = user_url
 
@@ -35,7 +42,6 @@ class UserInput:
         else:
             user_page_num = 5
         self.user_page_lim = user_page_num
-
 
     def request_user_settings(self):
         """Get both the starting url and max number of pages from the user"""
@@ -78,14 +84,15 @@ class Crawler:
         # Return False if no more links can be visited, true if they can
         if len(self.links_to_visit) > 0:
             url = self.links_to_visit.pop(0)
-            print(url)
-            page = Page(url)
-            page.collect_images(
-                total_unnamed_image_count=self.total_unnamed_images)
-            self.total_unnamed_images += page.get_unnamed_images_on_page()
-            self.dump_data(page)
-            if page.could_visit():
-                self.pages_visited += 1
+            # Only visit valid link
+            if url[:4] == "http":
+                page = Page(url)
+                page.collect_images(
+                    total_unnamed_image_count=self.total_unnamed_images)
+                self.total_unnamed_images += page.get_unnamed_images_on_page()
+                self.dump_data(page)
+                if page.get_could_visit():
+                    self.pages_visited += 1
         else:
             can_visit = False
 
@@ -185,8 +192,9 @@ class Page:
                 pass
 
         abs_links = [self.verify_abs_url(test_url=link) for link in links]
+        legit_links = filter(verify_real_url, abs_links)
 
-        return abs_links
+        return legit_links
 
     def collect_images(self, total_unnamed_image_count):
         """Collect all of the images on the page and add them to a list as an
@@ -212,6 +220,10 @@ class Page:
             temp = img.get('src')
 
             image_url = self.verify_abs_url(test_url=temp)
+
+            # If the link is not a normal link, forget it
+            if image_url[:4] != "http":
+                continue
             image_alt_text = str(img.get("alt"))
             image = ImageData(image_url=image_url, alt_text=image_alt_text,
                               unnamed_image_count=current_unnamed_image_count)
@@ -345,28 +357,36 @@ class ImageDownloader:
         print("Pictures to download:", len([img.get_file_name() for img
                                             in self.imgs]))
         for img in self.imgs:
-            # if img.is_unnamed():
-                # img.make_unnamed_title(unnamed_image_count=
-                #                        unnamed_image_count)
-                # unnamed_image_count += 1
+            print("Downloading image")
+            image_path = os.path.join(self.image_folder.get_path(),
+                                      img.get_file_name())
             prior_amount = len(os.listdir("./images"))
-            if os.path.exists(os.path.join("./images", img.get_file_name())):
+
+            if os.path.exists(image_path):
                 print("[WARNING] Image would be overwritten------------------")
                 print("Image name:", img.get_file_name())
                 print("^ Link:", img.get_image_url())
-
                 continue
-            image_file = open(os.path.join(self.image_folder.get_path(),
-                                           img.get_file_name()),
-                              "wb")
-            try:
-                image_file.write(urllib.request.urlopen(img.get_image_url())
-                                 .read())
-                image_file.close()
 
+            image_file = open(image_path, "wb")
+            try:
+                image_request = urllib.request.urlopen(img.get_image_url())
             except urllib.error.HTTPError:
-                print("Image unable to write.")
-                print("Url:", img.get_image_url())
+                print("Image unreachable")
+                continue
+
+            # Ignore blank images
+            try:
+                web_file_size = int(image_request.info()["Content-Length"])
+            except TypeError:
+                # The length of the photo is not provided. Take no risks
+                continue
+
+            if web_file_size <= 100:
+                continue
+
+            image_file.write(image_request.read())
+            image_file.close()
 
             later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
@@ -385,7 +405,6 @@ class CollageMaker:
 
     def run(self):
         collage_maker.run(self.settings)
-
 
 
 class Program:
