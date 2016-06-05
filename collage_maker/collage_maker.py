@@ -70,6 +70,8 @@ def make_collage(images, filename, width, init_height):
         return False
 
     collage_image = Image.new('RGB', (width, int(out_height)), (35, 35, 35))
+    #collage_image = Image.new('RGB', (width, int(out_height)), (100, 100, 100))
+
     # put images to the collage
     y = 0
     for coef, imgs_line in coefs_lines:
@@ -142,7 +144,6 @@ def run(settings):
     # get images
     images = get_images(settings)
 
-    print("Images:", images)
     if not images:
         print('No images for making collage! Please select other directory'
               ' with images!')
