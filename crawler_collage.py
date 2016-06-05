@@ -17,7 +17,7 @@ def verify_real_url(url):
     return True if url[:4] == "http" else False
 
 
-class UserInput:
+class CrawlerUserInput:
     """Get the page to crawl from the user"""
 
     def __init__(self):
@@ -110,11 +110,11 @@ class Crawler:
         for image in page.get_images():
             already_added = False
             for image_already_added in self.images:
-                if image_already_added.get_file_name() == image.get_file_name():
+                if image_already_added.get_file_name() == \
+                        image.get_file_name():
                     already_added = True
             if not already_added:
                 self.images.append(image)
-        #self.images.extend(page.get_images())
 
     def download_all_images(self):
         """Download all of the images on a page through the use of the image
@@ -263,6 +263,7 @@ class Page:
 
         return self.could_visit
 
+
 class ImageData:
     """Contain the information related to a single image"""
 
@@ -400,26 +401,78 @@ class ImageDownloader:
 
 
 class CollageMaker:
-    def __init__(self, settings):
-        self.settings = collage_maker.Settings()
+    def __init__(self, user_input):
+        self.user_input = user_input
+        self.ensure_folder_exists()
 
     def run(self):
-        collage_maker.run(self.settings)
+        collage_maker.run(self.user_input.get_settings())
+
+    def ensure_folder_exists(self):
+        collage_directory = Directory(path='./collages')
+        self.user_input.set_output_dir(collage_directory.get_path())
+
+
+class CollageUserInput:
+    def __init__(self):
+        self.folder = './images'
+        self.output_dir = './collages'
+        self.output_file_name = 'collage.png'
+        self.find_output_name()
+
+        self.output = self.set_output()
+
+        self.width = 1000
+        self.initial_height = 25
+        self.shuffle = False
+
+        self.settings = self.find_settings()
+
+    def find_settings(self):
+        settings = collage_maker.Settings(folder=self.folder,
+                                          output=self.output,
+                                          width=self.width,
+                                          initial_height=self.initial_height,
+                                          shuffle=self.shuffle)
+        return settings
+
+    def find_output_name(self):
+        name = input("Name of collage without an extension -> ")
+        name += ".png"
+        self.output_file_name = name
+
+    def set_output_dir(self, new_output_dir):
+        self.output_dir = new_output_dir
+        self.set_output()
+
+    def set_output(self):
+        """Return the full path to the output collage file when given the
+        directory and name of the collage file"""
+
+        collage_file_path = os.path.join(self.output_dir,
+                                         self.output_file_name)
+        self.output = collage_file_path
+        return collage_file_path
+
+    def get_settings(self):
+        return self.settings
 
 
 class Program:
     """Hold the main program"""
 
     def __init__(self):
-        self.user_input = UserInput()
-        self.user_input.request_user_settings()
+        self.crawler_user_input = CrawlerUserInput()
+        self.crawler_user_input.request_user_settings()
 
-        self.crawler = Crawler(self.user_input)
-        self.collage_maker = CollageMaker(self.user_input)
+        self.crawler = Crawler(self.crawler_user_input)
 
     def run(self):
         self.crawler.run()
-        self.collage_maker.run()
+
+        collage_input = CollageUserInput()
+        collage = CollageMaker(user_input=collage_input)
+        collage.run()
 
 if __name__ == "__main__":
     crawler_collage = Program()
