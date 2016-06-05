@@ -84,7 +84,7 @@ class Crawler:
                 total_unnamed_image_count=self.total_unnamed_images)
             self.total_unnamed_images += page.get_unnamed_images_on_page()
             self.dump_data(page)
-            if page.could_visit():
+            if page.get_could_visit():
                 self.pages_visited += 1
         else:
             can_visit = False
@@ -345,32 +345,53 @@ class ImageDownloader:
         print("Pictures to download:", len([img.get_file_name() for img
                                             in self.imgs]))
         for img in self.imgs:
+            print("Downloading image")
+            image_path = os.path.join(self.image_folder.get_path(),
+                                      img.get_file_name())
             # if img.is_unnamed():
                 # img.make_unnamed_title(unnamed_image_count=
                 #                        unnamed_image_count)
                 # unnamed_image_count += 1
             prior_amount = len(os.listdir("./images"))
-            if os.path.exists(os.path.join("./images", img.get_file_name())):
+
+            if os.path.exists(image_path):
                 print("[WARNING] Image would be overwritten------------------")
                 print("Image name:", img.get_file_name())
                 print("^ Link:", img.get_image_url())
-
                 continue
-            image_file = open(os.path.join(self.image_folder.get_path(),
-                                           img.get_file_name()),
-                              "wb")
-            try:
-                image_file.write(urllib.request.urlopen(img.get_image_url())
-                                 .read())
-                image_file.close()
 
+            image_file = open(image_path, "wb")
+            try:
+                image_request = urllib.request.urlopen(img.get_image_url())
             except urllib.error.HTTPError:
-                print("Image unable to write.")
-                print("Url:", img.get_image_url())
+                print("Image unreachable")
+                continue
+
+            # Ignore blank images
+
+            # meta = image_request.info()
+            # print("Content-Length:", meta.getheaders("Content-Length")[0])
+
+            if not image_request.length: # Maybe when file not reached false returned... Test code only--------
+                continue
+            if image_request.length <= 100:
+                continue
+                # image_file.write(urllib.request.urlopen(img.get_image_url())
+                #                  .read())
+
+            image_file.write(image_request.read())
+            image_file.close()
+
+            # except urllib.error.HTTPError:
+            #     print("Image unable to write.")
+            #     print("Url:", img.get_image_url())
 
             later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
                 print("[WARNING] Image not downloaded------------------------")
+            if os.path.getsize(image_path) <= 100:
+                os.remove(image_path)
+                print("Accidentally downloaded blank file")
         print("Images downloaded")
 
     def run(self):
