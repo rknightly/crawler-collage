@@ -12,6 +12,8 @@ import random
 from PIL import Image
 from optparse import OptionParser
 
+WHITE = (248, 248, 255)
+
 
 def make_collage(images, filename, width, init_height):
     """
@@ -69,8 +71,7 @@ def make_collage(images, filename, width, init_height):
         print('Height of collage could not be 0!')
         return False
 
-    collage_image = Image.new('RGB', (width, int(out_height)), (35, 35, 35))
-    #collage_image = Image.new('RGB', (width, int(out_height)), (100, 100, 100))
+    collage_image = Image.new('RGB', (width, int(out_height)), WHITE)
 
     # put images to the collage
     y = 0
