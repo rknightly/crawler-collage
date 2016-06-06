@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 import os
 from collage_maker import collage_maker
+import hashlib
 
 
 def verify_real_url(url):
@@ -15,6 +16,18 @@ def verify_real_url(url):
 
     # Quick test to see if it starts with http
     return True if url[:4] == "http" else False
+
+
+def find_checksum(file_path):
+    """Return the checksum of the file at the given file path"""
+
+    hash_md5 = hashlib.md5()
+    with open(file_path, 'rb') as file:
+        # Update the checksum with 4096 bytes at a time
+        for chunk in iter(lambda: file.read(4096), b''):
+            hash_md5.update(chunk)
+
+    return hash_md5
 
 
 class CrawlerUserInput:
@@ -352,6 +365,7 @@ class ImageDownloader:
         self.imgs = img_objects
         self.image_folder = Directory('./images')
         self.image_folder.clear_dir()
+        self.image_checksums = set()
 
     def download_images(self):
         """Download all of the images in the list of image objects"""
@@ -363,13 +377,13 @@ class ImageDownloader:
                                       img.get_file_name())
             prior_amount = len(os.listdir("./images"))
 
+            # Don't download any images that would overwrite an existing one
             if os.path.exists(image_path):
-                print("[WARNING] Image would be overwritten------------------")
-                print("Image name:", img.get_file_name())
-                print("^ Link:", img.get_image_url())
                 continue
 
             image_file = open(image_path, "wb")
+
+            # Ignore any images that are unreachable for any reason
             try:
                 image_request = urllib.request.urlopen(img.get_image_url())
             except urllib.error.HTTPError:
@@ -382,12 +396,18 @@ class ImageDownloader:
             except TypeError:
                 # The length of the photo is not provided. Take no risks
                 continue
-
+            # ID blank images by having unreasonably small file size
             if web_file_size <= 100:
                 continue
 
             image_file.write(image_request.read())
             image_file.close()
+
+            image_checksum = find_checksum(image_path)
+            # Delete the file if an identical image was downloaded earlier
+            if image_checksum in self.image_checksums:
+                os.remove(image_path)
+            self.image_checksums.add(image_checksum)
 
             later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
