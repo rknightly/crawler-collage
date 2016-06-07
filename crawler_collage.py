@@ -27,7 +27,7 @@ def find_checksum(file_path):
         for chunk in iter(lambda: file.read(4096), b''):
             hash_md5.update(chunk)
 
-    return hash_md5
+    return hash_md5.hexdigest()
 
 
 class CrawlerUserInput:
@@ -205,7 +205,7 @@ class Page:
                 pass
 
         abs_links = [self.verify_abs_url(test_url=link) for link in links]
-        legit_links = filter(verify_real_url, abs_links)
+        legit_links = list(filter(verify_real_url, abs_links))
 
         return legit_links
 
@@ -309,12 +309,13 @@ class ImageData:
         """
 
         # Remove commas and periods
-        alt_text = re.sub(r',|\.|/', '', self.alt_text)
+        alt_text = re.sub(r'[\./,:]', '', self.alt_text)
         # Replaces spaces with underscores
         alt_text = re.sub(r'\s', '_', alt_text)
         # Ensure that the file name is not too long
         if len(alt_text) >= 30:
             alt_text = alt_text[:30]
+
         return alt_text
 
     def get_file_name(self):
@@ -324,7 +325,7 @@ class ImageData:
 
     def is_unnamed(self):
         unnamed = False
-        if len(self.alt_text) <= 1:
+        if len(self.alt_text) <= 2:
             unnamed = True
         return unnamed
 
@@ -367,36 +368,65 @@ class ImageDownloader:
         self.image_folder.clear_dir()
         self.image_checksums = set()
 
+    def find_image_path(self, image):
+        """Return the full relative path of the image given"""
+
+        image_path = os.path.join(self.image_folder.get_path(),
+                                  image.get_file_name())
+        return image_path
+
+    def verify_download(self, image):
+        """Return True if the image is capable of being downloaded, False
+        otherwise.
+        """
+
+        valid = True
+
+        # Don't download any images that would overwrite an existing one
+        if os.path.exists(self.find_image_path(image)):
+            valid = False
+            return valid
+
+        # Ignore any images that are unreachable for any reason
+        try:
+            image_request = urllib.request.urlopen(image.get_image_url())
+        except urllib.error.HTTPError:
+            print("Image unreachable")
+            valid = False
+            return valid
+
+        # Ignore blank images
+        try:
+            web_file_size = int(image_request.info()["Content-Length"])
+        except TypeError:
+            # The length of the photo is not provided. Take no risks
+            valid = False
+            return valid
+
+        # ID blank images by having unreasonably small file size
+        if web_file_size <= 100:
+            valid = False
+            return valid
+
+        # If nothing wrong was detected, return the true value assigned in the
+        # beginning
+
+        return valid
+
     def download_images(self):
         """Download all of the images in the list of image objects"""
         print("Pictures to download:", len([img.get_file_name() for img
                                             in self.imgs]))
         for img in self.imgs:
             print("Downloading image")
-            image_path = os.path.join(self.image_folder.get_path(),
-                                      img.get_file_name())
+            image_path = self.find_image_path(img)
             prior_amount = len(os.listdir("./images"))
 
-            # Don't download any images that would overwrite an existing one
-            if os.path.exists(image_path):
+            if not self.verify_download(img):
+                print("Image unvalidated")
                 continue
 
-            # Ignore any images that are unreachable for any reason
-            try:
-                image_request = urllib.request.urlopen(img.get_image_url())
-            except urllib.error.HTTPError:
-                print("Image unreachable")
-                continue
-
-            # Ignore blank images
-            try:
-                web_file_size = int(image_request.info()["Content-Length"])
-            except TypeError:
-                # The length of the photo is not provided. Take no risks
-                continue
-            # ID blank images by having unreasonably small file size
-            if web_file_size <= 100:
-                continue
+            image_request = urllib.request.urlopen(img.get_image_url())
 
             image_file = open(image_path, "wb")
 
@@ -404,7 +434,10 @@ class ImageDownloader:
             image_file.close()
 
             image_checksum = find_checksum(image_path)
-            # Delete the file if an identical image was downloaded earlier
+
+            # Delete the file if an identical image was downloaded earlier.
+            # It must be downloaded already to check if it is already in the
+            # folder
             if image_checksum in self.image_checksums:
                 os.remove(image_path)
             self.image_checksums.add(image_checksum)

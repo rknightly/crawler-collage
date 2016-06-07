@@ -5,9 +5,9 @@ class BasicSettings:
     """Contain a basic user input to use in test cases"""
 
     def __init__(self):
-        from crawler_collage import UserInput
+        from crawler_collage import CrawlerUserInput
 
-        self.settings = UserInput()
+        self.settings = CrawlerUserInput()
         self.settings.user_url = "http://rknightly.github.io/introHtml.html"
         self.settings.user_page_lim = 2
 
@@ -22,7 +22,7 @@ class TestVisitPage(TestCase, BasicSettings):
     """
 
     def test_single_visit(self):
-        from crawler_collage import UserInput, Crawler, ImageData
+        from crawler_collage import Crawler, ImageData
 
         BasicSettings.__init__(self)
         crawler = Crawler(user_settings=self.settings)
@@ -121,7 +121,7 @@ class TestDownloadAllImages(TestCase, BasicSettings):
         crawler = Crawler(self.settings)
         crawler.visit_next_page()
         crawler.download_all_images()
-        self.assertEqual(self.check_how_many_pics(), 5,
+        self.assertEqual(self.check_how_many_pics(), 4,
                          "Images incorrectly downloaded when several images "
                          "were collected")
 

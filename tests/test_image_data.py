@@ -36,7 +36,7 @@ class TestMakeName(TestCase):
         from crawler_collage import ImageData
         image = ImageData(image_url="https://en.wikipedia.org/static/images/"
                                     "wikimedia-button.png",
-                          alt_text="fighter jet/ no. 1, best in Texas",
+                          alt_text="fighter jet/ no. 1,: best in Texas",
                           unnamed_image_count=6)
         self.assertEqual(image.get_file_name(),
                          "fighter_jet_no_1_best_in_Texas.png",
