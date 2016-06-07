@@ -381,8 +381,6 @@ class ImageDownloader:
             if os.path.exists(image_path):
                 continue
 
-            image_file = open(image_path, "wb")
-
             # Ignore any images that are unreachable for any reason
             try:
                 image_request = urllib.request.urlopen(img.get_image_url())
@@ -400,6 +398,8 @@ class ImageDownloader:
             if web_file_size <= 100:
                 continue
 
+            image_file = open(image_path, "wb")
+
             image_file.write(image_request.read())
             image_file.close()
 
@@ -412,6 +412,10 @@ class ImageDownloader:
             later_amount = len(os.listdir("./images"))
             if not later_amount > prior_amount:
                 print("[WARNING] Image not downloaded------------------------")
+
+            print("Filename:", img.get_file_name())
+            print("Url:", img.get_image_url(), '\n')
+
         print("Images downloaded")
 
     def run(self):
@@ -458,6 +462,8 @@ class CollageUserInput:
 
     def find_output_name(self):
         name = input("Name of collage without an extension -> ")
+        if name == "":
+            name = "collage"
         name += ".png"
         self.output_file_name = name
 
@@ -487,12 +493,12 @@ class Program:
 
         self.crawler = Crawler(self.crawler_user_input)
 
+        self.collage_input = CollageUserInput()
+        self.collage = CollageMaker(user_input=self.collage_input)
+
     def run(self):
         self.crawler.run()
-
-        collage_input = CollageUserInput()
-        collage = CollageMaker(user_input=collage_input)
-        collage.run()
+        self.collage.run()
 
 if __name__ == "__main__":
     crawler_collage = Program()

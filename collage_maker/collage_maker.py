@@ -39,6 +39,7 @@ def make_collage(images, filename, width, init_height):
                 img = Image.open(img_path)
             except OSError:
                 print("An image could not be used")
+                print(img_path)
                 continue
 
             img.thumbnail((width, init_height))
